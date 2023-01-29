@@ -1,0 +1,14 @@
+[target.'cfg(all(target_arch = "arm", target_os = "none"))']
+runner = "probe-run --chip nRF52840_xxAA"
+rustflags = [
+  "-C", "link-arg=-Tlink.x",
+  "-C", "link-arg=-Tdefmt.x",
+]
+
+[build]
+target = "thumbv7em-none-eabi"
+rustflags = ["-Clink-args=-Wl,-Map=app.map"]
+#rustflags = ["-Clink-args=-Map=app.map"]
+
+[alias]
+test_x86 = "test --target=x86_64-unknown-linux-gnu"

@@ -1,0 +1,2 @@
+Connect nRF52840 Development Kit (or other nRF52840 device) with a JLink programmer and run:
+$ DEFMT_LOG=info cargo run --release
