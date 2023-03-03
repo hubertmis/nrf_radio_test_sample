@@ -8,8 +8,16 @@ use nrf52840_hal::pac::{CorePeripherals, Peripherals};
 use nrf52840_hal::temp::Temp;
 use nrf_radio::radio::{self, Phy};
 use nrf_radio::error::Error;
-use nrf_radio::frame_buffer::frame_allocator::FrameAllocator;
-use nrf_radio::frame_buffer::single_frame_allocator::SingleFrameAllocator;
+use nrf_radio::frm_mem_mng::frame_allocator::FrameAllocator;
+use nrf_radio::frm_mem_mng::frame_buffer::FrameBuffer;
+use nrf_radio::frm_mem_mng::single_frame_allocator::SingleFrameAllocator;
+use nrf_radio::ieee802154::pib::Pib;
+use nrf_radio::ieee802154::rx::Rx;
+use nrf_radio::crit_sect; // Not needed - only because unnecessary mutex
+use nrf_radio::mutex::Mutex;
+use nrf_radio::utils::tasklet::TaskletQueue;
+
+use core::cell::RefCell;
 
 #[cfg(not(test))]
 #[panic_handler]
@@ -23,6 +31,9 @@ pub fn exit() -> ! {
         cortex_m::asm::bkpt();
     }
 }
+
+static mut phy: Option<Phy> = None;
+static mut tasklet_queue: Option<Mutex<RefCell<TaskletQueue>>> = None;
 
 #[cortex_m_rt::entry]
 fn main() -> ! {
@@ -49,19 +60,38 @@ fn main() -> ! {
 
     let frames_allocator = SingleFrameAllocator::new();
 
-    let phy = Phy::new(&peripherals.RADIO);
-    phy.configure_802154();
-    phy.set_channel(26).unwrap();
+    static mut pib: Pib = Pib::new();
+    unsafe {
+        tasklet_queue = Some(Mutex::new(RefCell::new(TaskletQueue::new())));
+        phy = Some(Phy::new(&peripherals.RADIO));
+
+        pib.set_pan_id(&[0x12, 0x34]);
+        pib.set_short_addr(&[0x12, 0x34]);
+        pib.set_ext_addr(&[0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef]);
+
+        let phy_ref = phy.as_mut().unwrap();
+        phy_ref.configure_802154();
+        phy_ref.set_channel(26).unwrap();
+    }
     let mut frame: [u8; 17] = [16, 0x41, 0x98, 0x0f, 0xff, 0xff, 0xff, 0xff, 0xcd, 0xab,
                                    0x01, 0x02, 0x03, 0x04, 0x05,
                                    0x00, 0x00];
+    let rx;
+    unsafe {
+        rx = Rx::new(phy.as_ref().unwrap(), &pib, tasklet_queue.as_ref().unwrap());
+    }
     loop {
         frame[14] += 1;
         //phy.tx(&frame, tx_cb, &None::<u8>);
         {
             let frame = frames_allocator.get_frame();
             if let Ok(frame) = frame {
-                phy.rx(frame, rx_cb).unwrap();
+                let result = rx.start(frame, ieee802154_rx_cb);
+                if let Ok(_) = result {
+                    defmt::info!("Started RX");
+                } else {
+                    defmt::info!("Error starting RX");
+                }
             } else {
                 defmt::info!("No buffers available");
             }
@@ -70,6 +100,11 @@ fn main() -> ! {
         wait();
         p0.out.write(|w| w.pin13().clear_bit());
         wait();
+        crit_sect::locked(|cs| {
+            unsafe {
+                tasklet_queue.as_ref().unwrap().borrow(cs).borrow_mut().run();
+            }
+        });
     }
 }
 
@@ -90,6 +125,16 @@ fn rx_cb(result: Result<radio::RxOk, Error>) {
         defmt::info!("Received frame: {:x}", result.frame);
     } else {
         defmt::info!("Rx error");
+    }
+}
+
+fn ieee802154_rx_cb(result: Result<FrameBuffer, Error>) {
+    match result {
+        Ok(frame) => defmt::info!("Received frame: {:x}", frame),
+        Err(Error::NotMatchingPanId) => defmt::info!("Received frame with other Pan Id"),
+        Err(Error::NotMatchingAddress) => defmt::info!("Received frame with other destination address"),
+        Err(Error::InvalidFrame) => defmt::info!("Received invalid frame"),
+        Err(_) => defmt::info!("Unexpected Rx error"),
     }
 }
 

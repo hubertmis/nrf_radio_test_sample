@@ -261,7 +261,6 @@ dependencies = [
 [[package]]
 name = "nrf_radio"
 version = "0.1.0"
-source = "git+https://github.com/hubertmis/nrf_radio?rev=9d6349e22582f0d4045022054da8eeed138beabd#9d6349e22582f0d4045022054da8eeed138beabd"
 dependencies = [
  "cortex-m",
  "defmt",
