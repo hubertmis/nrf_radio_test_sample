@@ -13,11 +13,7 @@ use nrf_radio::frm_mem_mng::frame_buffer::FrameBuffer;
 use nrf_radio::frm_mem_mng::single_frame_allocator::SingleFrameAllocator;
 use nrf_radio::ieee802154::pib::Pib;
 use nrf_radio::ieee802154::rx::Rx;
-use nrf_radio::crit_sect; // Not needed - only because unnecessary mutex
-use nrf_radio::mutex::Mutex;
 use nrf_radio::utils::tasklet::TaskletQueue;
-
-use core::cell::RefCell;
 
 #[cfg(not(test))]
 #[panic_handler]
@@ -32,8 +28,8 @@ pub fn exit() -> ! {
     }
 }
 
-static mut phy: Option<Phy> = None;
-static mut tasklet_queue: Option<Mutex<RefCell<TaskletQueue>>> = None;
+static mut PHY: Option<Phy> = None;
+static mut TASKLET_QUEUE: Option<TaskletQueue> = None;
 
 #[cortex_m_rt::entry]
 fn main() -> ! {
@@ -60,16 +56,16 @@ fn main() -> ! {
 
     let frames_allocator = SingleFrameAllocator::new();
 
-    static mut pib: Pib = Pib::new();
+    static mut PIB: Pib = Pib::new();
     unsafe {
-        tasklet_queue = Some(Mutex::new(RefCell::new(TaskletQueue::new())));
-        phy = Some(Phy::new(&peripherals.RADIO));
+        TASKLET_QUEUE = Some(TaskletQueue::new());
+        PHY = Some(Phy::new(&peripherals.RADIO));
 
-        pib.set_pan_id(&[0x12, 0x34]);
-        pib.set_short_addr(&[0x12, 0x34]);
-        pib.set_ext_addr(&[0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef]);
+        PIB.set_pan_id(&[0x12, 0x34]);
+        PIB.set_short_addr(&[0x12, 0x34]);
+        PIB.set_ext_addr(&[0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef]);
 
-        let phy_ref = phy.as_mut().unwrap();
+        let phy_ref = PHY.as_mut().unwrap();
         phy_ref.configure_802154();
         phy_ref.set_channel(26).unwrap();
     }
@@ -78,7 +74,7 @@ fn main() -> ! {
                                    0x00, 0x00];
     let rx;
     unsafe {
-        rx = Rx::new(phy.as_ref().unwrap(), &pib, tasklet_queue.as_ref().unwrap());
+        rx = Rx::new(PHY.as_ref().unwrap(), &PIB, TASKLET_QUEUE.as_ref().unwrap());
     }
     loop {
         frame[14] += 1;
@@ -100,11 +96,9 @@ fn main() -> ! {
         wait();
         p0.out.write(|w| w.pin13().clear_bit());
         wait();
-        crit_sect::locked(|cs| {
-            unsafe {
-                tasklet_queue.as_ref().unwrap().borrow(cs).borrow_mut().run();
-            }
-        });
+        unsafe {
+            TASKLET_QUEUE.as_ref().unwrap().run();
+        }
     }
 }
 
@@ -134,6 +128,7 @@ fn ieee802154_rx_cb(result: Result<FrameBuffer, Error>) {
         Err(Error::NotMatchingPanId) => defmt::info!("Received frame with other Pan Id"),
         Err(Error::NotMatchingAddress) => defmt::info!("Received frame with other destination address"),
         Err(Error::InvalidFrame) => defmt::info!("Received invalid frame"),
+        Err(Error::IncorrectCrc) => defmt::info!("Received frame with CRC error"),
         Err(_) => defmt::info!("Unexpected Rx error"),
     }
 }
