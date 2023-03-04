@@ -64,6 +64,7 @@ fn main() -> ! {
         PIB.set_pan_id(&[0x12, 0x34]);
         PIB.set_short_addr(&[0x12, 0x34]);
         PIB.set_ext_addr(&[0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef]);
+        PIB.set_promiscuous(true);
 
         let phy_ref = PHY.as_mut().unwrap();
         phy_ref.configure_802154();

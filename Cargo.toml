@@ -11,7 +11,7 @@ cortex-m-rt = "0.7"
 defmt = "0.3"
 defmt-rtt = "0.4"
 nrf52840-hal = "0.16"
-nrf_radio = { git = "https://github.com/hubertmis/nrf_radio", rev = "124d6cef0b6e1a9e3828fc0d5465364959f635d6" }
+nrf_radio = { git = "https://github.com/hubertmis/nrf_radio", rev = "f906484dd889aa7e80155e5b7be91a2019b6eee2" }
 #nrf_radio = { path = "../nrf_radio" }
 
 [features]
