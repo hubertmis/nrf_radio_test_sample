@@ -6,6 +6,8 @@ use defmt_rtt as _;
 
 use nrf52840_hal::pac::{CorePeripherals, Peripherals};
 use nrf52840_hal::temp::Temp;
+use nrf_radio::hw::ppi;
+use nrf_radio::hw::timer::{Timer, timer_using_timer::TimerUsingTimer};
 use nrf_radio::radio::{self, Phy};
 use nrf_radio::error::Error;
 use nrf_radio::frm_mem_mng::frame_allocator::FrameAllocator;
@@ -29,6 +31,8 @@ pub fn exit() -> ! {
 }
 
 static mut PHY: Option<Phy> = None;
+static mut TIMER: Option<TimerUsingTimer> = None;
+static mut PPI_ALLOCATOR: Option<ppi::Allocator> = None;
 static mut TASKLET_QUEUE: Option<TaskletQueue> = None;
 
 #[cortex_m_rt::entry]
@@ -60,6 +64,10 @@ fn main() -> ! {
     unsafe {
         TASKLET_QUEUE = Some(TaskletQueue::new());
         PHY = Some(Phy::new(&peripherals.RADIO));
+        PPI_ALLOCATOR = Some(ppi::Allocator::new(&peripherals.PPI));
+        TIMER = Some(TimerUsingTimer::new(&peripherals.TIMER0));
+
+        <TimerUsingTimer as Timer<ppi::Channel>>::start(TIMER.as_mut().unwrap());
 
         PIB.set_pan_id(&[0x12, 0x34]);
         PIB.set_short_addr(&[0x12, 0x34]);
@@ -73,9 +81,10 @@ fn main() -> ! {
     let mut frame: [u8; 17] = [16, 0x41, 0x98, 0x0f, 0xff, 0xff, 0xff, 0xff, 0xcd, 0xab,
                                    0x01, 0x02, 0x03, 0x04, 0x05,
                                    0x00, 0x00];
+
     let rx;
     unsafe {
-        rx = Rx::new(PHY.as_ref().unwrap(), &PIB, TASKLET_QUEUE.as_ref().unwrap());
+        rx = Rx::new(PHY.as_ref().unwrap(), &PIB, TASKLET_QUEUE.as_ref().unwrap(), PPI_ALLOCATOR.as_ref().unwrap(), TIMER.as_ref().unwrap());
     }
     loop {
         frame[14] += 1;
@@ -123,9 +132,9 @@ fn rx_cb(result: Result<radio::RxOk, Error>) {
     }
 }
 
-fn ieee802154_rx_cb(result: Result<FrameBuffer, Error>) {
+fn ieee802154_rx_cb(result: Result<(FrameBuffer, u64), Error>) {
     match result {
-        Ok(frame) => defmt::info!("Received frame: {:x}", frame),
+        Ok((frame, timestamp)) => defmt::info!("Received frame at {}: {:x}", timestamp, frame),
         Err(Error::NotMatchingPanId) => defmt::info!("Received frame with other Pan Id"),
         Err(Error::NotMatchingAddress) => defmt::info!("Received frame with other destination address"),
         Err(Error::InvalidFrame) => defmt::info!("Received invalid frame"),

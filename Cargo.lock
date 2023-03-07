@@ -3,6 +3,12 @@
 version = 3
 
 [[package]]
+name = "array-init"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3d62b7694a562cdf5a74227903507c56ab2cc8bdd1f781ed5cb4cf9c9f810bfc"
+
+[[package]]
 name = "az"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -261,8 +267,9 @@ dependencies = [
 [[package]]
 name = "nrf_radio"
 version = "0.1.0"
-source = "git+https://github.com/hubertmis/nrf_radio?rev=f906484dd889aa7e80155e5b7be91a2019b6eee2#f906484dd889aa7e80155e5b7be91a2019b6eee2"
+source = "git+https://github.com/hubertmis/nrf_radio?rev=12b10718f1ee1d2ee02107afd5b7929190aaec5c#12b10718f1ee1d2ee02107afd5b7929190aaec5c"
 dependencies = [
+ "array-init",
  "cortex-m",
  "defmt",
  "nrf52840-hal",
