@@ -7,7 +7,7 @@ use defmt_rtt as _;
 use nrf52840_hal::pac::{CorePeripherals, Peripherals};
 use nrf52840_hal::temp::Temp;
 use nrf_radio::hw::ppi;
-use nrf_radio::hw::timer::{Timer, timer_using_timer::TimerUsingTimer};
+use nrf_radio::hw::timer::{timer_using_timer::TimerUsingTimer, traits::Timer as TimerTrait};
 use nrf_radio::radio::{self, Phy};
 use nrf_radio::error::Error;
 use nrf_radio::frm_mem_mng::frame_allocator::FrameAllocator;
@@ -67,16 +67,16 @@ fn main() -> ! {
         PPI_ALLOCATOR = Some(ppi::Allocator::new(&peripherals.PPI));
         TIMER = Some(TimerUsingTimer::new(&peripherals.TIMER0));
 
-        <TimerUsingTimer as Timer<ppi::Channel>>::start(TIMER.as_mut().unwrap());
+        TIMER.as_mut().unwrap().start().unwrap();
 
         PIB.set_pan_id(&[0x12, 0x34]);
         PIB.set_short_addr(&[0x12, 0x34]);
         PIB.set_ext_addr(&[0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef]);
-        PIB.set_promiscuous(true);
+//        PIB.set_promiscuous(true);
 
         let phy_ref = PHY.as_mut().unwrap();
         phy_ref.configure_802154();
-        phy_ref.set_channel(26).unwrap();
+        phy_ref.set_channel(11).unwrap();
     }
     let mut frame: [u8; 17] = [16, 0x41, 0x98, 0x0f, 0xff, 0xff, 0xff, 0xff, 0xcd, 0xab,
                                    0x01, 0x02, 0x03, 0x04, 0x05,
