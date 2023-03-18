@@ -3,10 +3,26 @@
 version = 3
 
 [[package]]
-name = "array-init"
-version = "2.1.0"
+name = "arr_macro"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d62b7694a562cdf5a74227903507c56ab2cc8bdd1f781ed5cb4cf9c9f810bfc"
+checksum = "c49336e062fa2ae8aca17a2f99c34d9c1a5d30827e8aff1cb4c294f253afe992"
+dependencies = [
+ "arr_macro_impl",
+ "proc-macro-hack",
+ "proc-macro-nested",
+]
+
+[[package]]
+name = "arr_macro_impl"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c6368f9ae5c6ec403ca910327ae0c9437b0a85255b6950c90d497e6177f6e5e"
+dependencies = [
+ "proc-macro-hack",
+ "quote",
+ "syn",
+]
 
 [[package]]
 name = "az"
@@ -267,9 +283,9 @@ dependencies = [
 [[package]]
 name = "nrf_radio"
 version = "0.1.0"
-source = "git+https://github.com/hubertmis/nrf_radio?rev=61ab654f47e0f2dc4e6d04a7f2ee9959c9830dab#61ab654f47e0f2dc4e6d04a7f2ee9959c9830dab"
+source = "git+https://github.com/hubertmis/nrf_radio?rev=e7c4590d6681d2a89ba173ac75b0be66df40e10c#e7c4590d6681d2a89ba173ac75b0be66df40e10c"
 dependencies = [
- "array-init",
+ "arr_macro",
  "cortex-m",
  "defmt",
  "nrf52840-hal",
@@ -298,6 +314,18 @@ dependencies = [
  "quote",
  "version_check",
 ]
+
+[[package]]
+name = "proc-macro-hack"
+version = "0.5.20+deprecated"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc375e1527247fe1a97d8b7156678dfe7c1af2fc075c9a4db3690ecd2a148068"
+
+[[package]]
+name = "proc-macro-nested"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bc881b2c22681370c6a780e47af9840ef841837bc98118431d4e1868bd0c1086"
 
 [[package]]
 name = "proc-macro2"

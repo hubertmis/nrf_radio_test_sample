@@ -12,7 +12,7 @@ use nrf_radio::radio::{self, Phy};
 use nrf_radio::error::Error;
 use nrf_radio::frm_mem_mng::frame_allocator::FrameAllocator;
 use nrf_radio::frm_mem_mng::frame_buffer::FrameBuffer;
-use nrf_radio::frm_mem_mng::single_frame_allocator::SingleFrameAllocator;
+use nrf_radio::frm_mem_mng::single_pool_allocator::SinglePoolAllocator;
 use nrf_radio::ieee802154::pib::Pib;
 use nrf_radio::ieee802154::rx::Rx;
 use nrf_radio::utils::tasklet::TaskletQueue;
@@ -34,6 +34,7 @@ static mut PHY: Option<Phy> = None;
 static mut TIMER: Option<TimerUsingTimer> = None;
 static mut PPI_ALLOCATOR: Option<ppi::Allocator> = None;
 static mut TASKLET_QUEUE: Option<TaskletQueue> = None;
+static mut FRAME_ALLOCATOR: Option<SinglePoolAllocator> = None;
 
 #[cortex_m_rt::entry]
 fn main() -> ! {
@@ -58,14 +59,14 @@ fn main() -> ! {
         nrf52840_hal::pac::NVIC::unmask(radio_irq_num);
     }
 
-    let frames_allocator = SingleFrameAllocator::new();
-
     static mut PIB: Pib = Pib::new();
+    let frame_allocator;
     unsafe {
         TASKLET_QUEUE = Some(TaskletQueue::new());
         PHY = Some(Phy::new(&peripherals.RADIO));
         PPI_ALLOCATOR = Some(ppi::Allocator::new(&peripherals.PPI));
         TIMER = Some(TimerUsingTimer::new(&peripherals.TIMER0));
+        FRAME_ALLOCATOR = Some(SinglePoolAllocator::new());
 
         TIMER.as_mut().unwrap().start().unwrap();
 
@@ -77,6 +78,8 @@ fn main() -> ! {
         let phy_ref = PHY.as_mut().unwrap();
         phy_ref.configure_802154();
         phy_ref.set_channel(11).unwrap();
+
+        frame_allocator = FRAME_ALLOCATOR.as_ref().unwrap();
     }
     let mut frame: [u8; 17] = [16, 0x41, 0x98, 0x0f, 0xff, 0xff, 0xff, 0xff, 0xcd, 0xab,
                                    0x01, 0x02, 0x03, 0x04, 0x05,
@@ -84,13 +87,13 @@ fn main() -> ! {
 
     let rx;
     unsafe {
-        rx = Rx::new(PHY.as_ref().unwrap(), &PIB, TASKLET_QUEUE.as_ref().unwrap(), PPI_ALLOCATOR.as_ref().unwrap(), TIMER.as_ref().unwrap());
+        rx = Rx::new(PHY.as_ref().unwrap(), &PIB, TASKLET_QUEUE.as_ref().unwrap(), PPI_ALLOCATOR.as_ref().unwrap(), TIMER.as_ref().unwrap(), FRAME_ALLOCATOR.as_ref().unwrap());
     }
     loop {
         frame[14] += 1;
         //phy.tx(&frame, tx_cb, &None::<u8>);
         {
-            let frame = frames_allocator.get_frame();
+            let frame = frame_allocator.get_frame();
             if let Ok(frame) = frame {
                 let result = rx.start(frame, ieee802154_rx_cb);
                 if let Ok(_) = result {
